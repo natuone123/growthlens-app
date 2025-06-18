@@ -49,14 +49,26 @@ else:
 
     name = st.text_input("企業名")
     fiscal = st.text_input("決算期（例：2025年3月期）")
-    sales = st.text_input("売上高（億円）")
-    yoy = st.text_input("売上前年同期比（%）")
-    op_profit = st.text_input("営業利益（億円）")
-    op_yoy = st.text_input("営業利益前年同期比（%）")
-    net_profit = st.text_input("純利益（億円）")
-    net_yoy = st.text_input("純利益前年同期比（%）")
-    eps = st.text_input("EPS（円）")
+
+    # 一次情報の入力
+    sales_current = st.number_input("今期売上高（億円）", step=0.1)
+    sales_prev = st.number_input("前期売上高（億円）", step=0.1)
+    op_current = st.number_input("今期営業利益（億円）", step=0.1)
+    op_prev = st.number_input("前期営業利益（億円）", step=0.1)
+    net_current = st.number_input("今期純利益（億円）", step=0.1)
+    net_prev = st.number_input("前期純利益（億円）", step=0.1)
+    eps_current = st.number_input("今期EPS（円）", step=0.1)
+    eps_prev = st.number_input("前期EPS（円）", step=0.1)
     future = st.text_area("会社コメント・来期見通し（任意）")
+
+    # 自動計算
+    def calc_growth(current, previous):
+        return ((current - previous) / previous * 100) if previous else 0
+
+    sales_yoy = calc_growth(sales_current, sales_prev)
+    op_yoy = calc_growth(op_current, op_prev)
+    net_yoy = calc_growth(net_current, net_prev)
+    eps_yoy = calc_growth(eps_current, eps_prev)
 
     if st.button("📋 テンプレート生成"):
         output = f"""
@@ -65,12 +77,12 @@ else:
 
 【企業名】{name}
 【決算期】{fiscal}
-【売上高】{sales}億円（前年比{yoy}%）
-【営業利益】{op_profit}億円（前年比{op_yoy}%）
-【純利益】{net_profit}億円（前年比{net_yoy}%）
-【EPS】{eps}円
+【売上高】今期 {sales_current} 億円 ／ 前期 {sales_prev} 億円（前年比：{sales_yoy:.1f}%）
+【営業利益】今期 {op_current} 億円 ／ 前期 {op_prev} 億円（前年比：{op_yoy:.1f}%）
+【純利益】今期 {net_current} 億円 ／ 前期 {net_prev} 億円（前年比：{net_yoy:.1f}%）
+【EPS】今期 {eps_current} 円 ／ 前期 {eps_prev} 円（前年比：{eps_yoy:.1f}%）
 【会社見通し・注記】{future}
 
 出力は「良い点・懸念点・投資家視点でのまとめ」の見出し＋箇条書き形式で整理してください。
 """
-        st.text_area("📤 GPT用テンプレート", value=output.strip(), height=300)
+        st.text_area("📤 GPT用テンプレート", value=output.strip(), height=350)
