@@ -1,10 +1,11 @@
 import streamlit as st
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="GrowthLens", layout="centered", initial_sidebar_state="expanded")
 st.title("📊 GrowthLens – 企業分析＆決算レビューGPT用テンプレート生成")
 
 mode = st.radio("モード選択", ["企業分析", "決算レビュー"])
-output = ""  # 出力テンプレ格納用
+output = ""
 
 if mode == "企業分析":
     st.subheader("① 企業情報を入力してください")
@@ -90,7 +91,15 @@ if mode == "決算レビュー":
 出力は「良い点・懸念点・投資家視点でのまとめ」の見出し＋箇条書き形式で整理してください。
 """
 
-# 📎 コピー可能な出力表示（共通）
+# 📎 出力テンプレート + コピー機能（HTML）
 if output:
-    st.text_area("📤 GPT用テンプレート（ここからコピー）", value=output.strip(), height=350)
-    st.caption("📎 テキストを選択してコピー（長押し→コピー or Ctrl+C）")
+    st.text_area("📤 GPT用テンプレート（表示確認用）", value=output.strip(), height=350)
+    components.html(f"""
+        <textarea id="templateText" style="opacity:0; height:0;">{output.strip()}</textarea>
+        <button onclick="
+            var copyText = document.getElementById('templateText');
+            copyText.select();
+            document.execCommand('copy');
+            alert('テンプレートをコピーしました！');
+        " style="padding:10px 20px; font-size:16px; margin-top:10px;">📎 コピーする</button>
+    """, height=70)
