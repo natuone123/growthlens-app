@@ -11,14 +11,19 @@ if mode == "企業分析":
 
     name = st.text_input("企業名")
     code = st.text_input("証券コード（任意）")
-    sales_growth = st.text_input("売上成長率（%）")
-    op_margin = st.text_input("営業利益率（%）")
+    sales_current = st.number_input("今期売上高（億円）", step=0.1)
+    sales_prev = st.number_input("前期売上高（億円）", step=0.1)
+    op_profit = st.number_input("営業利益（億円）", step=0.1)
     roe = st.text_input("ROE（%）")
     per = st.text_input("PER（倍）")
     capital_ratio = st.text_input("自己資本比率（%）")
     dividend = st.text_input("配当利回り（%）")
     business = st.text_area("主な事業内容")
     theme = st.text_input("成長テーマ（例：AI、半導体、ヘルスケア など）")
+
+    # 自動計算
+    sales_growth = ((sales_current - sales_prev) / sales_prev * 100) if sales_prev else 0
+    op_margin = (op_profit / sales_current * 100) if sales_current else 0
 
     if st.button("📋 テンプレート生成"):
         output = f"""
@@ -27,8 +32,8 @@ if mode == "企業分析":
 
 【企業名】{name}
 【証券コード】{code}
-【売上成長率】{sales_growth}%
-【営業利益率】{op_margin}%
+【売上高】今期 {sales_current} 億円 ／ 前期 {sales_prev} 億円（成長率：{sales_growth:.1f}%）
+【営業利益】{op_profit} 億円（営業利益率：{op_margin:.1f}%）
 【ROE】{roe}%
 【PER】{per}倍
 【自己資本比率】{capital_ratio}%
@@ -38,8 +43,7 @@ if mode == "企業分析":
 
 出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
 """
-        st.text_area("📤 GPT用テンプレート", value=output.strip(), height=300)
-
+        st.text_area("📤 GPT用テンプレート", value=output.strip(), height=350)
 else:
     st.subheader("② 決算情報を入力してください")
 
