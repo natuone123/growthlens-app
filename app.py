@@ -139,7 +139,7 @@ for i, item in enumerate(reversed(st.session_state["history"])):
     with cols[1]:
         if st.button("🗑 削除", key=f"delete_{i}"):
             del st.session_state["history"][idx]
-            st.experimental_rerun()
+            st.rerun()
 
 # 一括削除ボタン
 if st.session_state["history"]:
