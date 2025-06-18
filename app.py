@@ -1,10 +1,10 @@
 import streamlit as st
 
 st.set_page_config(page_title="GrowthLens", layout="centered", initial_sidebar_state="expanded")
-
 st.title("📊 GrowthLens – 企業分析＆決算レビューGPT用テンプレート生成")
 
 mode = st.radio("モード選択", ["企業分析", "決算レビュー"])
+output = ""  # 出力テンプレ格納用
 
 if mode == "企業分析":
     st.subheader("① 企業情報を入力してください")
@@ -21,7 +21,6 @@ if mode == "企業分析":
     business = st.text_area("主な事業内容")
     theme = st.text_input("成長テーマ（例：AI、半導体、ヘルスケア など）")
 
-    # 自動計算
     if sales_prev and sales_current:
         sales_growth = (sales_current - sales_prev) / sales_prev * 100
     else:
@@ -50,26 +49,23 @@ if mode == "企業分析":
 
 出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
 """
-        st.text_area("📤 GPT用テンプレート", value=output.strip(), height=350)
 
-else:
+if mode == "決算レビュー":
     st.subheader("② 決算情報を入力してください")
 
-    name = st.text_input("企業名")
-    fiscal = st.text_input("決算期（例：2025年3月期）")
+    name = st.text_input("企業名", key="name_2")
+    fiscal = st.text_input("決算期（例：2025年3月期）", key="fiscal_2")
 
-    # 一次情報の入力
-    sales_current = st.number_input("今期売上高（億円）", value=None, step=1.0, format="%.1f")
-    sales_prev = st.number_input("前期売上高（億円）", value=None, step=1.0, format="%.1f")
-    op_current = st.number_input("今期営業利益（億円）", value=None, step=1.0, format="%.1f")
-    op_prev = st.number_input("前期営業利益（億円）", value=None, step=1.0, format="%.1f")
-    net_current = st.number_input("今期純利益（億円）", value=None, step=1.0, format="%.1f")
-    net_prev = st.number_input("前期純利益（億円）", value=None, step=1.0, format="%.1f")
-    eps_current = st.number_input("今期EPS（円）", value=None, step=1.0, format="%.1f")
-    eps_prev = st.number_input("前期EPS（円）", value=None, step=1.0, format="%.1f")
-    future = st.text_area("会社コメント・来期見通し（任意）")
+    sales_current = st.number_input("今期売上高（億円）", value=None, step=1.0, format="%.1f", key="sales_current_2")
+    sales_prev = st.number_input("前期売上高（億円）", value=None, step=1.0, format="%.1f", key="sales_prev_2")
+    op_current = st.number_input("今期営業利益（億円）", value=None, step=1.0, format="%.1f", key="op_current_2")
+    op_prev = st.number_input("前期営業利益（億円）", value=None, step=1.0, format="%.1f", key="op_prev_2")
+    net_current = st.number_input("今期純利益（億円）", value=None, step=1.0, format="%.1f", key="net_current_2")
+    net_prev = st.number_input("前期純利益（億円）", value=None, step=1.0, format="%.1f", key="net_prev_2")
+    eps_current = st.number_input("今期EPS（円）", value=None, step=1.0, format="%.1f", key="eps_current_2")
+    eps_prev = st.number_input("前期EPS（円）", value=None, step=1.0, format="%.1f", key="eps_prev_2")
+    future = st.text_area("会社コメント・来期見通し（任意）", key="future_2")
 
-    # 自動計算関数
     def calc_growth(current, previous):
         return ((current - previous) / previous * 100) if previous else 0
 
@@ -78,7 +74,7 @@ else:
     net_yoy = calc_growth(net_current, net_prev)
     eps_yoy = calc_growth(eps_current, eps_prev)
 
-    if st.button("📋 テンプレート生成"):
+    if st.button("📋 テンプレート生成", key="generate_2"):
         output = f"""
 あなたは中長期投資家を支援するAI株式アナリストです。
 以下の決算情報に基づき、決算レビューを行ってください。
@@ -93,4 +89,8 @@ else:
 
 出力は「良い点・懸念点・投資家視点でのまとめ」の見出し＋箇条書き形式で整理してください。
 """
-        st.text_area("📤 GPT用テンプレート", value=output.strip(), height=350)
+
+# 📎 コピー可能な出力表示（共通）
+if output:
+    st.text_area("📤 GPT用テンプレート（ここからコピー）", value=output.strip(), height=350)
+    st.caption("📎 テキストを選択してコピー（長押し→コピー or Ctrl+C）")
