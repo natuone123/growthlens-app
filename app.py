@@ -12,6 +12,9 @@ if "history" not in st.session_state:
 mode = st.radio("モード選択", ["企業分析", "決算レビュー"])
 output = ""
 
+# -----------------------
+# 企業分析モード
+# -----------------------
 if mode == "企業分析":
     st.subheader("① 企業情報を入力してください")
 
@@ -27,15 +30,9 @@ if mode == "企業分析":
     business = st.text_area("主な事業内容")
     theme = st.text_input("成長テーマ（例：AI、半導体、ヘルスケア など）")
 
-    if sales_prev and sales_current:
-        sales_growth = (sales_current - sales_prev) / sales_prev * 100
-    else:
-        sales_growth = 0
-
-    if sales_current and op_profit:
-        op_margin = op_profit / sales_current * 100
-    else:
-        op_margin = 0
+    # 自動計算
+    sales_growth = ((sales_current - sales_prev) / sales_prev * 100) if sales_prev else 0
+    op_margin = (op_profit / sales_current * 100) if sales_current else 0
 
     if st.button("📋 テンプレート生成"):
         output = f"""
@@ -62,6 +59,9 @@ if mode == "企業分析":
             "日時": datetime.now().strftime("%Y-%m-%d %H:%M")
         })
 
+# -----------------------
+# 決算レビュー
+# -----------------------
 if mode == "決算レビュー":
     st.subheader("② 決算情報を入力してください")
 
@@ -108,7 +108,9 @@ if mode == "決算レビュー":
             "日時": datetime.now().strftime("%Y-%m-%d %H:%M")
         })
 
-# 📎 出力テンプレート + コピー機能
+# -----------------------
+# 出力テンプレート＋コピー機能
+# -----------------------
 if output:
     st.text_area("📤 GPT用テンプレート（表示確認用）", value=output.strip(), height=350)
     components.html(f"""
@@ -121,16 +123,31 @@ if output:
         " style="padding:10px 20px; font-size:16px; margin-top:10px;">📎 コピーする</button>
     """, height=70)
 
-# 📚 履歴の表示
+# -----------------------
+# 履歴表示＋個別削除
+# -----------------------
 st.markdown("---")
 st.subheader("📚 テンプレート履歴")
 
-for item in reversed(st.session_state["history"]):
-    st.markdown(f"- **{item['日時']}**｜{item['企業名']}（{item['モード']}）")
-    with st.expander("▶ 内容を表示"):
-        st.code(item["テンプレート"], language="markdown")
+for i, item in enumerate(reversed(st.session_state["history"])):
+    idx = len(st.session_state["history"]) - 1 - i  # 元のindexを求める
+    cols = st.columns([6, 1])
+    with cols[0]:
+        st.markdown(f"- **{item['日時']}**｜{item['企業名']}（{item['モード']}）")
+        with st.expander("▶ 内容を表示"):
+            st.code(item["テンプレート"], language="markdown")
+    with cols[1]:
+        if st.button("🗑 削除", key=f"delete_{i}"):
+            del st.session_state["history"][idx]
+            st.experimental_rerun()
 
-# 📥 CSVダウンロード
+# 一括削除ボタン
+if st.session_state["history"]:
+    if st.button("🗑️ 履歴をすべて削除"):
+        st.session_state["history"].clear()
+        st.success("履歴を削除しました")
+
+# CSVダウンロード
 if st.session_state["history"]:
     df = pd.DataFrame(st.session_state["history"])
     csv = df.to_csv(index=False).encode("utf-8-sig")
