@@ -11,9 +11,9 @@ if mode == "企業分析":
 
     name = st.text_input("企業名")
     code = st.text_input("証券コード（任意）")
-    sales_current = st.number_input("今期売上高（億円）", step=0.1)
-    sales_prev = st.number_input("前期売上高（億円）", step=0.1)
-    op_profit = st.number_input("営業利益（億円）", step=0.1)
+    sales_current = st.number_input("今期売上高（億円）", value=None, step=1.0, format="%.1f")
+    sales_prev = st.number_input("前期売上高（億円）", value=None, step=1.0, format="%.1f")
+    op_profit = st.number_input("営業利益（億円）", value=None, step=1.0, format="%.1f")
     roe = st.text_input("ROE（%）")
     per = st.text_input("PER（倍）")
     capital_ratio = st.text_input("自己資本比率（%）")
@@ -22,8 +22,15 @@ if mode == "企業分析":
     theme = st.text_input("成長テーマ（例：AI、半導体、ヘルスケア など）")
 
     # 自動計算
-    sales_growth = ((sales_current - sales_prev) / sales_prev * 100) if sales_prev else 0
-    op_margin = (op_profit / sales_current * 100) if sales_current else 0
+    if sales_prev and sales_current:
+        sales_growth = (sales_current - sales_prev) / sales_prev * 100
+    else:
+        sales_growth = 0
+
+    if sales_current and op_profit:
+        op_margin = op_profit / sales_current * 100
+    else:
+        op_margin = 0
 
     if st.button("📋 テンプレート生成"):
         output = f"""
@@ -44,6 +51,7 @@ if mode == "企業分析":
 出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
 """
         st.text_area("📤 GPT用テンプレート", value=output.strip(), height=350)
+
 else:
     st.subheader("② 決算情報を入力してください")
 
@@ -51,17 +59,17 @@ else:
     fiscal = st.text_input("決算期（例：2025年3月期）")
 
     # 一次情報の入力
-    sales_current = st.number_input("今期売上高（億円）", step=0.1)
-    sales_prev = st.number_input("前期売上高（億円）", step=0.1)
-    op_current = st.number_input("今期営業利益（億円）", step=0.1)
-    op_prev = st.number_input("前期営業利益（億円）", step=0.1)
-    net_current = st.number_input("今期純利益（億円）", step=0.1)
-    net_prev = st.number_input("前期純利益（億円）", step=0.1)
-    eps_current = st.number_input("今期EPS（円）", step=0.1)
-    eps_prev = st.number_input("前期EPS（円）", step=0.1)
+    sales_current = st.number_input("今期売上高（億円）", value=None, step=1.0, format="%.1f")
+    sales_prev = st.number_input("前期売上高（億円）", value=None, step=1.0, format="%.1f")
+    op_current = st.number_input("今期営業利益（億円）", value=None, step=1.0, format="%.1f")
+    op_prev = st.number_input("前期営業利益（億円）", value=None, step=1.0, format="%.1f")
+    net_current = st.number_input("今期純利益（億円）", value=None, step=1.0, format="%.1f")
+    net_prev = st.number_input("前期純利益（億円）", value=None, step=1.0, format="%.1f")
+    eps_current = st.number_input("今期EPS（円）", value=None, step=1.0, format="%.1f")
+    eps_prev = st.number_input("前期EPS（円）", value=None, step=1.0, format="%.1f")
     future = st.text_area("会社コメント・来期見通し（任意）")
 
-    # 自動計算
+    # 自動計算関数
     def calc_growth(current, previous):
         return ((current - previous) / previous * 100) if previous else 0
 
