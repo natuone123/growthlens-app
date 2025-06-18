@@ -1,8 +1,13 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import pandas as pd
+from datetime import datetime
 
 st.set_page_config(page_title="GrowthLens", layout="centered", initial_sidebar_state="expanded")
 st.title("📊 GrowthLens – 企業分析＆決算レビューGPT用テンプレート生成")
+
+if "history" not in st.session_state:
+    st.session_state["history"] = []
 
 mode = st.radio("モード選択", ["企業分析", "決算レビュー"])
 output = ""
@@ -50,6 +55,12 @@ if mode == "企業分析":
 
 出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
 """
+        st.session_state["history"].append({
+            "モード": "企業分析",
+            "企業名": name,
+            "テンプレート": output.strip(),
+            "日時": datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
 
 if mode == "決算レビュー":
     st.subheader("② 決算情報を入力してください")
@@ -90,8 +101,14 @@ if mode == "決算レビュー":
 
 出力は「良い点・懸念点・投資家視点でのまとめ」の見出し＋箇条書き形式で整理してください。
 """
+        st.session_state["history"].append({
+            "モード": "決算レビュー",
+            "企業名": name,
+            "テンプレート": output.strip(),
+            "日時": datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
 
-# 📎 出力テンプレート + コピー機能（HTML）
+# 📎 出力テンプレート + コピー機能
 if output:
     st.text_area("📤 GPT用テンプレート（表示確認用）", value=output.strip(), height=350)
     components.html(f"""
@@ -103,3 +120,18 @@ if output:
             alert('テンプレートをコピーしました！');
         " style="padding:10px 20px; font-size:16px; margin-top:10px;">📎 コピーする</button>
     """, height=70)
+
+# 📚 履歴の表示
+st.markdown("---")
+st.subheader("📚 テンプレート履歴")
+
+for item in reversed(st.session_state["history"]):
+    st.markdown(f"- **{item['日時']}**｜{item['企業名']}（{item['モード']}）")
+    with st.expander("▶ 内容を表示"):
+        st.code(item["テンプレート"], language="markdown")
+
+# 📥 CSVダウンロード
+if st.session_state["history"]:
+    df = pd.DataFrame(st.session_state["history"])
+    csv = df.to_csv(index=False).encode("utf-8-sig")
+    st.download_button("💾 履歴をCSVでダウンロード", csv, file_name="growthlens_history.csv", mime="text/csv")
