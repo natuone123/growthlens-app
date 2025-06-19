@@ -65,9 +65,12 @@ if mode == "決算レビュー":
     st.subheader("② 決算情報を入力してください")
 
     name = st.text_input("企業名", key="name_2")
-    fiscal_year = st.number_input("決算期（年, 例: 25）", min_value=0, max_value=99, step=1, key="year_2")
-    fiscal_month = st.number_input("決算期（月, 例: 6）", min_value=1, max_value=12, step=1, key="month_2")
-    fiscal = f"20{fiscal_year:02d}年{fiscal_month}月期"
+
+    # 🔧 現在の年の下2桁を取得（例：2025→25）
+    default_year = int(str(datetime.now().year)[2:])
+    fiscal_year = st.number_input("決算期（年, 例: 25）", min_value=0, max_value=99, value=default_year, step=1, key="year_2")
+    fiscal_month = st.number_input("決算期（月, 例: 6）", min_value=1, max_value=12, value=None, step=1, format="%d", key="month_2")
+    fiscal = f"20{fiscal_year:02d}年{fiscal_month}月期" if fiscal_month else "未入力"
 
     sales_current = st.number_input("今期売上高（百万円）", value=None, step=100.0, format="%.0f", key="sales_current_2")
     sales_prev = st.number_input("前期売上高（百万円）", value=None, step=100.0, format="%.0f", key="sales_prev_2")
@@ -110,10 +113,8 @@ if mode == "決算レビュー":
         })
 
 # -----------------------
-# 出力と履歴（省略せずそのまま残しています）
+# 出力と履歴
 # -----------------------
-
-# 出力表示 + コピー
 if output:
     st.text_area("📤 GPT用テンプレート（表示確認用）", value=output.strip(), height=350)
     components.html(f"""
@@ -126,7 +127,6 @@ if output:
         " style="padding:10px 20px; font-size:16px; margin-top:10px;">📎 コピーする</button>
     """, height=70)
 
-# 履歴一覧と削除
 st.markdown("---")
 st.subheader("📚 テンプレート履歴")
 
