@@ -64,7 +64,7 @@ if mode == "企業分析":
             "テンプレート": output.strip(),
             "日時": datetime.now().strftime("%Y-%m-%d %H:%M")
         })
-                st.text_area("📤 GPT用テンプレート", value=output.strip(), height=350)
+        st.text_area("📤 GPT用テンプレート", value=output.strip(), height=350)
         st.button("📋 コピー", on_click=st.experimental_set_query_params, key="copy_btn")
 
 # --------------------------
