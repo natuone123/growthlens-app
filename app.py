@@ -49,8 +49,8 @@ if mode == "企業分析":
     sales_growth = ((sales_current_f - sales_prev_f) / sales_prev_f * 100) if sales_prev_f else 0
     op_margin = (op_profit_f / sales_current_f * 100) if sales_current_f else 0
 
-    if st.button("📋 テンプレート生成"):
-        output = f"""
+if st.button("📋 テンプレート生成"):
+    output = f"""
 あなたは中長期投資家を支援するAI株式アナリストです。
 以下の企業データに基づき、企業分析を行ってください。
 
@@ -68,37 +68,39 @@ if mode == "企業分析":
 出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
 分析は中長期（3〜10年）目線で行い、最新の成長テーマ（AI、量子コンピュータ、半導体、DX、ESG等）を積極的に考慮してください。
 """
-        st.markdown(f"""
-        <div style="position: relative;">
-            <textarea id="templateText" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
-            <button onclick="copyText()" style="
-                position: absolute;
-                top: 10px;
-                right: 10px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                padding: 5px 10px;
-                cursor: pointer;
-                border-radius: 5px;">📋 コピー</button>
-        </div>
-        <script>
-        function copyText() {{
-          var copyText = document.getElementById("templateText");
-          copyText.select();
-          document.execCommand("copy");
-        }}
-        </script>
-        """, unsafe_allow_html=True)
-        st.session_state.history.append(("企業分析", datetime.now(), output.strip()))
-        st.session_state["企業名"] = name
-        st.session_state["証券コード"] = code
-        st.session_state["ROE"] = roe
-        st.session_state["PER"] = per
-        st.session_state["自己資本比率"] = capital_ratio
-        st.session_state["配当利回り"] = dividend
-        st.session_state["主な事業内容"] = business
-        st.session_state["成長テーマ"] = theme
+
+    st.markdown(f"""
+    <div style="position: relative;">
+        <textarea id="templateText" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
+        <button onclick="copyText()" style="
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;">📋 コピー</button>
+    </div>
+    <script>
+    function copyText() {{
+      var copyText = document.getElementById("templateText");
+      copyText.select();
+      document.execCommand("copy");
+    }}
+    </script>
+    """, unsafe_allow_html=True)
+
+    st.session_state.history.append(("企業分析", datetime.now(), output.strip()))
+    st.session_state["企業名"] = name
+    st.session_state["証券コード"] = code
+    st.session_state["ROE"] = roe
+    st.session_state["PER"] = per
+    st.session_state["自己資本比率"] = capital_ratio
+    st.session_state["配当利回り"] = dividend
+    st.session_state["主な事業内容"] = business
+    st.session_state["成長テーマ"] = theme
 
 # --- 決算レビュー ---
 else:
