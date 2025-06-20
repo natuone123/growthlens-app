@@ -1,7 +1,8 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from datetime import datetime
 
-# 現在年の下2桁（例：2025 → 25）
+# 現在年の下2桁
 current_year = datetime.now().year % 100
 
 # アプリ設定
@@ -17,7 +18,7 @@ mode = st.radio("モード選択", ["企業分析", "決算レビュー"])
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# --- 企業分析 ---
+# --- 企業分析モード ---
 if mode == "企業分析":
     st.subheader("① 企業情報を入力してください")
 
@@ -32,6 +33,7 @@ if mode == "企業分析":
     dividend = st.text_input("配当利回り（%）", value=st.session_state.get("配当利回り", ""), placeholder="例：1.8")
     business = st.text_area("主な事業内容", value=st.session_state.get("主な事業内容", ""))
     theme = st.text_input("成長テーマ（例：AI、半導体、ヘルスケア など）", value=st.session_state.get("成長テーマ", ""))
+
     try:
         sales_current_f = float(sales_current)
     except:
@@ -49,8 +51,7 @@ if mode == "企業分析":
     op_margin = (op_profit_f / sales_current_f * 100) if sales_current_f else 0
 
     if st.button("📋 テンプレート生成"):
-        output = f"""
-あなたは中長期投資家を支援するAI株式アナリストです。
+        output = f"""あなたは中長期投資家を支援するAI株式アナリストです。
 以下の企業データに基づき、企業分析を行ってください。
 
 【企業名】{name}
@@ -65,24 +66,17 @@ if mode == "企業分析":
 【成長テーマ】{theme}
 
 出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
-分析は中長期（3〜10年）目線で行い、最新の成長テーマ（AI、量子コンピュータ、半導体、DX、ESG等）を積極的に考慮してください。
-"""
+分析は中長期（3〜10年）目線で行い、最新の成長テーマ（AI、量子コンピュータ、半導体、DX、ESG等）を積極的に考慮してください。"""
 
-        st.markdown(f"""
+        components.html(f"""
         <div style="position: relative;">
-            <textarea id="templateText" style="width: 100%; height: 350px; padding: 10px; font-family: monospace;">{output.strip()}</textarea>
-            <button onclick="navigator.clipboard.writeText(document.getElementById('templateText').value)" style="
-                position: absolute;
-                top: 10px;
-                right: 10px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                padding: 5px 10px;
-                cursor: pointer;
-                border-radius: 5px;">📋 コピー</button>
+            <textarea id="copyTarget" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('copyTarget').value)" 
+                    style="position: absolute; top: 10px; right: 10px; background-color: #4CAF50; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 5px;">
+                📋 コピー
+            </button>
         </div>
-        """, unsafe_allow_html=True)
+        """, height=340)
 
         st.session_state.history.append(("企業分析", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
@@ -93,6 +87,7 @@ if mode == "企業分析":
         st.session_state["配当利回り"] = dividend
         st.session_state["主な事業内容"] = business
         st.session_state["成長テーマ"] = theme
+
 # --- 決算レビュー ---
 else:
     st.subheader("② 決算情報を入力してください")
@@ -131,8 +126,7 @@ else:
 
     if st.button("📋 テンプレート生成"):
         fiscal_str = f"20{fiscal_year}年{fiscal_month}月期"
-        output = f"""
-あなたは中長期投資家を支援するAI株式アナリストです。
+        output = f"""あなたは中長期投資家を支援するAI株式アナリストです。
 以下の決算情報に基づき、決算レビューを行ってください。
 
 【企業名】{name}
@@ -143,23 +137,17 @@ else:
 【EPS】{eps}円
 【会社見通し・注記】{future}
 
-出力は「決算の総合評価・良い点・懸念点・中長期投資家としての判断材料・今後の注意点」の見出し＋箇条書き形式で整理してください。
-"""
-        st.markdown(f"""
+出力は「決算の総合評価・良い点・懸念点・中長期投資家としての判断材料・今後の注意点」の見出し＋箇条書き形式で整理してください。"""
+
+        components.html(f"""
         <div style="position: relative;">
-            <textarea id="templateText" style="width: 100%; height: 350px; padding: 10px; font-family: monospace;">{output.strip()}</textarea>
-            <button onclick="navigator.clipboard.writeText(document.getElementById('templateText').value)" style="
-                position: absolute;
-                top: 10px;
-                right: 10px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                padding: 5px 10px;
-                cursor: pointer;
-                border-radius: 5px;">📋 コピー</button>
+            <textarea id="copyTarget" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('copyTarget').value)" 
+                    style="position: absolute; top: 10px; right: 10px; background-color: #4CAF50; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 5px;">
+                📋 コピー
+            </button>
         </div>
-        """, unsafe_allow_html=True)
+        """, height=340)
 
         st.session_state.history.append(("決算レビュー", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
