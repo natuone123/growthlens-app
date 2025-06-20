@@ -49,8 +49,8 @@ if mode == "企業分析":
     sales_growth = ((sales_current_f - sales_prev_f) / sales_prev_f * 100) if sales_prev_f else 0
     op_margin = (op_profit_f / sales_current_f * 100) if sales_current_f else 0
 
-if st.button("📋 テンプレート生成"):
-    output = f"""
+    if st.button("📋 テンプレート生成"):
+        output = f"""
 あなたは中長期投資家を支援するAI株式アナリストです。
 以下の企業データに基づき、企業分析を行ってください。
 
