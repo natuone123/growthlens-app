@@ -13,4 +13,4 @@ gatherUsageStats = false
 serverAddress = "0.0.0.0"
 
 [general]
-favicon = "https://raw.githubusercontent.com/natuone123/growthlens-app/main/.streamlit/favicon.png"
+favicon = "https://raw.githubusercontent.com/natuone123/growthlens-app/main/.streamlit/growthlens_logo.png"
