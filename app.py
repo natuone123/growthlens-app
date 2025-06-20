@@ -1,4 +1,3 @@
-
 import streamlit as st
 from datetime import datetime
 
@@ -33,8 +32,7 @@ if mode == "企業分析":
     dividend = st.text_input("配当利回り（%）", value=st.session_state.get("配当利回り", ""), placeholder="例：1.8")
     business = st.text_area("主な事業内容", value=st.session_state.get("主な事業内容", ""))
     theme = st.text_input("成長テーマ（例：AI、半導体、ヘルスケア など）", value=st.session_state.get("成長テーマ", ""))
-
-    try:
+        try:
         sales_current_f = float(sales_current)
     except:
         sales_current_f = 0
@@ -69,6 +67,7 @@ if mode == "企業分析":
 出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
 分析は中長期（3〜10年）目線で行い、最新の成長テーマ（AI、量子コンピュータ、半導体、DX、ESG等）を積極的に考慮してください。
 """
+
         st.markdown(f"""
         <div style="position: relative;">
             <textarea id="templateText" style="width: 100%; height: 350px; padding: 10px; font-family: monospace;">{output.strip()}</textarea>
@@ -84,6 +83,7 @@ if mode == "企業分析":
                 border-radius: 5px;">📋 コピー</button>
         </div>
         """, unsafe_allow_html=True)
+
         st.session_state.history.append(("企業分析", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
         st.session_state["証券コード"] = code
@@ -93,7 +93,6 @@ if mode == "企業分析":
         st.session_state["配当利回り"] = dividend
         st.session_state["主な事業内容"] = business
         st.session_state["成長テーマ"] = theme
-
 # --- 決算レビュー ---
 else:
     st.subheader("② 決算情報を入力してください")
@@ -148,8 +147,8 @@ else:
 """
         st.markdown(f"""
         <div style="position: relative;">
-            <textarea id="templateText2" style="width: 100%; height: 350px; padding: 10px; font-family: monospace;">{output.strip()}</textarea>
-            <button onclick="navigator.clipboard.writeText(document.getElementById('templateText2').value)" style="
+            <textarea id="templateText" style="width: 100%; height: 350px; padding: 10px; font-family: monospace;">{output.strip()}</textarea>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('templateText').value)" style="
                 position: absolute;
                 top: 10px;
                 right: 10px;
@@ -161,6 +160,7 @@ else:
                 border-radius: 5px;">📋 コピー</button>
         </div>
         """, unsafe_allow_html=True)
+
         st.session_state.history.append(("決算レビュー", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
 
