@@ -68,28 +68,28 @@ if mode == "企業分析":
 出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
 分析は中長期（3〜10年）目線で行い、最新の成長テーマ（AI、量子コンピュータ、半導体、DX、ESG等）を積極的に考慮してください。
 """
-        st.markdown("""
-            <div style="position: relative;">
-                <textarea id="templateText" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{}</textarea>
-                <button onclick="copyText()" style="
-                    position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    background-color: #4CAF50;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    cursor: pointer;
-                    border-radius: 5px;">📋 コピー</button>
-            </div>
-            <script>
-            function copyText() {
-              var copyText = document.getElementById("templateText");
-              copyText.select();
-              document.execCommand("copy");
-            }
-            </script>
-            """.format(output), unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="position: relative;">
+            <textarea id="templateText" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
+            <button onclick="copyText()" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                cursor: pointer;
+                border-radius: 5px;">📋 コピー</button>
+        </div>
+        <script>
+        function copyText() {{
+          var copyText = document.getElementById("templateText");
+          copyText.select();
+          document.execCommand("copy");
+        }}
+        </script>
+        """, unsafe_allow_html=True)
         st.session_state.history.append(("企業分析", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
         st.session_state["証券コード"] = code
@@ -152,28 +152,28 @@ else:
 
 出力は「決算の総合評価・良い点・懸念点・中長期投資家としての判断材料・今後の注意点」の見出し＋箇条書き形式で整理してください。
 """
-        st.markdown("""
-            <div style="position: relative;">
-                <textarea id="templateText" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{}</textarea>
-                <button onclick="copyText()" style="
-                    position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    background-color: #4CAF50;
-                    color: white;
-                    border: none;
-                    padding: 5px 10px;
-                    cursor: pointer;
-                    border-radius: 5px;">📋 コピー</button>
-            </div>
-            <script>
-            function copyText() {
-              var copyText = document.getElementById("templateText");
-              copyText.select();
-              document.execCommand("copy");
-            }
-            </script>
-            """.format(output), unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="position: relative;">
+            <textarea id="templateText" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
+            <button onclick="copyText()" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                cursor: pointer;
+                border-radius: 5px;">📋 コピー</button>
+        </div>
+        <script>
+        function copyText() {{
+          var copyText = document.getElementById("templateText");
+          copyText.select();
+          document.execCommand("copy");
+        }}
+        </script>
+        """, unsafe_allow_html=True)
         st.session_state.history.append(("決算レビュー", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
 
