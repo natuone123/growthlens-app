@@ -32,7 +32,7 @@ if mode == "企業分析":
     dividend = st.text_input("配当利回り（%）", value=st.session_state.get("配当利回り", ""), placeholder="例：1.8")
     business = st.text_area("主な事業内容", value=st.session_state.get("主な事業内容", ""))
     theme = st.text_input("成長テーマ（例：AI、半導体、ヘルスケア など）", value=st.session_state.get("成長テーマ", ""))
-        try:
+    try:
         sales_current_f = float(sales_current)
     except:
         sales_current_f = 0
