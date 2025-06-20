@@ -1,3 +1,4 @@
+
 import streamlit as st
 from datetime import datetime
 
@@ -9,6 +10,7 @@ st.set_page_config(page_title="GrowthLens", layout="centered", initial_sidebar_s
 
 # ロゴ画像
 st.image("https://raw.githubusercontent.com/natuone123/growthlens-app/main/.streamlit/growthlens_logo.png", width=80)
+
 st.title("GrowthLens – 企業分析＆決算レビューGPT用テンプレート生成")
 
 mode = st.radio("モード選択", ["企業分析", "決算レビュー"])
@@ -16,7 +18,7 @@ mode = st.radio("モード選択", ["企業分析", "決算レビュー"])
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# --- 企業分析モード ---
+# --- 企業分析 ---
 if mode == "企業分析":
     st.subheader("① 企業情報を入力してください")
 
@@ -34,10 +36,16 @@ if mode == "企業分析":
 
     try:
         sales_current_f = float(sales_current)
+    except:
+        sales_current_f = 0
+    try:
         sales_prev_f = float(sales_prev)
+    except:
+        sales_prev_f = 0
+    try:
         op_profit_f = float(op_profit)
     except:
-        sales_current_f = sales_prev_f = op_profit_f = 0
+        op_profit_f = 0
 
     sales_growth = ((sales_current_f - sales_prev_f) / sales_prev_f * 100) if sales_prev_f else 0
     op_margin = (op_profit_f / sales_current_f * 100) if sales_current_f else 0
@@ -60,12 +68,23 @@ if mode == "企業分析":
 
 出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
 分析は中長期（3〜10年）目線で行い、最新の成長テーマ（AI、量子コンピュータ、半導体、DX、ESG等）を積極的に考慮してください。
-""".strip()
-
-        st.text_area("📤 GPT用テンプレート", value=output, height=350)
-        st.download_button("📋 コピー用テキストをダウンロード", output, file_name="template.txt")
-
-        st.session_state.history.append(("企業分析", datetime.now(), output))
+"""
+        st.markdown(f"""
+        <div style="position: relative;">
+            <textarea id="templateText" style="width: 100%; height: 350px; padding: 10px; font-family: monospace;">{output.strip()}</textarea>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('templateText').value)" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                cursor: pointer;
+                border-radius: 5px;">📋 コピー</button>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.history.append(("企業分析", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
         st.session_state["証券コード"] = code
         st.session_state["ROE"] = roe
@@ -93,11 +112,20 @@ else:
 
     try:
         sales_current_f = float(sales_current)
+    except:
+        sales_current_f = 0
+    try:
         sales_prev_f = float(sales_prev)
+    except:
+        sales_prev_f = 0
+    try:
         op_current_f = float(op_current)
+    except:
+        op_current_f = 0
+    try:
         op_prev_f = float(op_prev)
     except:
-        sales_current_f = sales_prev_f = op_current_f = op_prev_f = 0
+        op_prev_f = 0
 
     sales_yoy = ((sales_current_f - sales_prev_f) / sales_prev_f * 100) if sales_prev_f else 0
     op_yoy = ((op_current_f - op_prev_f) / op_prev_f * 100) if op_prev_f else 0
@@ -117,18 +145,29 @@ else:
 【会社見通し・注記】{future}
 
 出力は「決算の総合評価・良い点・懸念点・中長期投資家としての判断材料・今後の注意点」の見出し＋箇条書き形式で整理してください。
-""".strip()
-
-        st.text_area("📤 GPT用テンプレート", value=output, height=350)
-        st.download_button("📋 コピー用テキストをダウンロード", output, file_name="template.txt")
-
-        st.session_state.history.append(("決算レビュー", datetime.now(), output))
+"""
+        st.markdown(f"""
+        <div style="position: relative;">
+            <textarea id="templateText2" style="width: 100%; height: 350px; padding: 10px; font-family: monospace;">{output.strip()}</textarea>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('templateText2').value)" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                cursor: pointer;
+                border-radius: 5px;">📋 コピー</button>
+        </div>
+        """, unsafe_allow_html=True)
+        st.session_state.history.append(("決算レビュー", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
 
 # --- 履歴表示・削除 ---
 with st.expander("📜 生成履歴"):
-    for mode_str, ts, content in reversed(st.session_state.history):
-        st.markdown(f"**{mode_str}（{ts.strftime('%Y-%m-%d %H:%M:%S')}）**")
+    for i, (mode_str, ts, content) in enumerate(reversed(st.session_state.history)):
+        st.markdown(f"**{mode_str}**（{ts.strftime('%Y-%m-%d %H:%M:%S')}）")
         st.code(content, language="markdown")
     if st.button("🗑️ 履歴を全て削除"):
         st.session_state.history.clear()
