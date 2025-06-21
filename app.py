@@ -6,7 +6,12 @@ from datetime import datetime
 current_year = datetime.now().year % 100
 
 # アプリ設定
-st.set_page_config(page_title="GrowthLens", layout="centered", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="GrowthLens",
+    page_icon="https://raw.githubusercontent.com/natuone123/growthlens-app/main/.streamlit/growthlens_favicon.ico",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
 
 # ロゴ画像
 st.image("https://raw.githubusercontent.com/natuone123/growthlens-app/main/.streamlit/growthlens_logo.png", width=80)
