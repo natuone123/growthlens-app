@@ -98,7 +98,7 @@ else:
     st.subheader("② 決算情報を入力してください")
 
     name = st.text_input("企業名", value=st.session_state.get("企業名", ""))
-    fiscal_year = st.text_input("決算期（年, 例:25）", placeholder=f"例：{current_year}")
+    fiscal_year = st.text_input("決算期（年, 例:25）", value=str(current_year), placeholder="例：25")
     fiscal_month = st.text_input("決算期（月, 例:6）", placeholder="例：6")
     quarter = st.text_input("第◯四半期（通期は空欄）", placeholder="例：1, 2, 3, 4 または空欄")
 
