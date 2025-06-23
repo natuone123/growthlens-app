@@ -100,6 +100,8 @@ else:
     name = st.text_input("企業名", value=st.session_state.get("企業名", ""))
     fiscal_year = st.text_input("決算期（年, 例:25）", placeholder=f"例：{current_year}")
     fiscal_month = st.text_input("決算期（月, 例:6）", placeholder="例：6")
+    quarter = st.text_input("第◯四半期（通期は空欄）", placeholder="例：1, 2, 3, 4 または空欄")
+
     sales_current = st.text_input("今期売上高（百万円）", placeholder="例：12345")
     sales_prev = st.text_input("前期売上高（百万円）", placeholder="例：10000")
     op_current = st.text_input("今期営業利益（百万円）", placeholder="例：1300")
@@ -111,27 +113,22 @@ else:
 
     try:
         sales_current_f = float(sales_current)
-    except:
-        sales_current_f = 0
-    try:
         sales_prev_f = float(sales_prev)
-    except:
-        sales_prev_f = 0
-    try:
         op_current_f = float(op_current)
-    except:
-        op_current_f = 0
-    try:
         op_prev_f = float(op_prev)
     except:
-        op_prev_f = 0
+        sales_current_f = sales_prev_f = op_current_f = op_prev_f = 0
 
     sales_yoy = ((sales_current_f - sales_prev_f) / sales_prev_f * 100) if sales_prev_f else 0
     op_yoy = ((op_current_f - op_prev_f) / op_prev_f * 100) if op_prev_f else 0
 
     if st.button("📋 テンプレート生成"):
         fiscal_str = f"20{fiscal_year}年{fiscal_month}月期"
-        output = f"""あなたは中長期投資家を支援するAI株式アナリストです。
+        if quarter.strip():
+            fiscal_str += f" 第{quarter}四半期"
+
+        output = f"""
+あなたは中長期投資家を支援するAI株式アナリストです。
 以下の決算情報に基づき、決算レビューを行ってください。
 
 【企業名】{name}
@@ -142,21 +139,13 @@ else:
 【EPS】{eps}円
 【会社見通し・注記】{future}
 
-出力は「決算の総合評価・良い点・懸念点・中長期投資家としての判断材料・今後の注意点」の見出し＋箇条書き形式で整理してください。最後に、中長期投資家の視点から、本決算を踏まえた本銘柄のおすすめ度（A〜E）を総合的に評価してください。"""
+出力は「決算の総合評価・良い点・懸念点・中長期投資家としての判断材料・今後の注意点」の見出し＋箇条書き形式で整理してください。
 
-        components.html(f"""
-        <div style="position: relative;">
-            <textarea id="copyTarget" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
-            <button onclick="navigator.clipboard.writeText(document.getElementById('copyTarget').value)" 
-                    style="position: absolute; top: 10px; right: 10px; background-color: #4CAF50; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 5px;">
-                📋 コピー
-            </button>
-        </div>
-        """, height=340)
-
+最後に中長期投資の視点から、おすすめ度をA〜Eで評価してください。
+"""
+        st.text_area("📤 GPT用テンプレート", value=output.strip(), height=350)
         st.session_state.history.append(("決算レビュー", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
-
 # --- 履歴表示・削除 ---
 with st.expander("📜 生成履歴"):
     for i, (mode_str, ts, content) in enumerate(reversed(st.session_state.history)):
