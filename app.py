@@ -143,7 +143,15 @@ else:
 
 最後に中長期投資の視点から、おすすめ度をA〜Eで評価してください。
 """
-        st.text_area("📤 GPT用テンプレート", value=output.strip(), height=350)
+        components.html(f"""
+        <div style="position: relative;">
+            <textarea id="copyTarget" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
+            <button onclick="navigator.clipboard.writeText(document.getElementById('copyTarget').value)" 
+                    style="position: absolute; top: 10px; right: 10px; background-color: #4CAF50; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 5px;">
+                📋 コピー
+            </button>
+        </div>
+        """, height=340)
         st.session_state.history.append(("決算レビュー", datetime.now(), output.strip()))
         st.session_state["企業名"] = name
 # --- 履歴表示・削除 ---
