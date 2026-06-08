@@ -143,8 +143,10 @@ def extract_numbers(line):
 
 def find_line_values(lines, labels):
     for line in lines:
-        if any(label in line for label in labels):
-            values = extract_numbers(line)
+        matched_label = next((label for label in labels if label in line), "")
+        if matched_label:
+            target = line.split(matched_label, 1)[1] or line
+            values = extract_numbers(target)
             if values:
                 return values, line
     return [], ""
@@ -160,6 +162,9 @@ def current_and_previous(values, is_eps=False):
 
     if is_eps:
         return current, values[1]["value"]
+
+    if len(values) >= 3 and not values[1]["is_percent"] and abs(values[1]["value"]) <= 300:
+        return current, values[2]["value"]
 
     non_percent = [item["value"] for item in values if not item["is_percent"]]
     if len(non_percent) >= 2:
