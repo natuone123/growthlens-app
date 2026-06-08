@@ -123,9 +123,11 @@ def read_pdf_text(uploaded_file):
         pages = []
         for page in reader.pages:
             try:
-                pages.append(page.extract_text(extraction_mode="layout") or "")
+                layout_text = page.extract_text(extraction_mode="layout") or ""
             except TypeError:
-                pages.append(page.extract_text() or "")
+                layout_text = ""
+            plain_text = page.extract_text() or ""
+            pages.append(layout_text if len(layout_text.strip()) >= len(plain_text.strip()) * 0.5 else plain_text)
         return "\n".join(pages), ""
     except Exception as exc:
         return "", f"PDFを読み取れませんでした: {exc}"
@@ -225,6 +227,104 @@ def current_only(values):
     return values[0]["value"] if values else 0.0
 
 
+def period_row_numbers(line):
+    period_match = re.search(r"20\d{2}年.*?期", line)
+    if not period_match:
+        return []
+    values = clean_number_candidates(extract_numbers(line[period_match.end() :]))
+    return [item["value"] for item in values]
+
+
+def find_period_row_pairs(lines, start_index=0, min_count=2):
+    rows = []
+    for line in lines[start_index:]:
+        numbers = period_row_numbers(line)
+        if len(numbers) >= min_count:
+            rows.append((line, numbers))
+            if len(rows) == 2:
+                return rows
+    return rows
+
+
+def find_summary_table_values(lines):
+    for index, line in enumerate(lines):
+        if not any(label in line for label in ["売上高", "売上収益", "営業収益"]):
+            continue
+
+        joined_header = " ".join(lines[index : index + 4])
+        if not any(label in joined_header for label in ["営業利益", "営業損失"]):
+            continue
+
+        rows = find_period_row_pairs(lines, index, min_count=4)
+        if len(rows) < 2:
+            continue
+
+        current_line, current = rows[0]
+        prev_line, previous = rows[1]
+        current_non_percent = current[::2] if len(current) >= 8 else current
+        prev_non_percent = previous[::2] if len(previous) >= 8 else previous
+
+        if len(current_non_percent) < 2 or len(prev_non_percent) < 2:
+            continue
+
+        net_index = 4 if len(current_non_percent) >= 5 else min(3, len(current_non_percent) - 1)
+        return {
+            "earnings_sales_current": current_non_percent[0],
+            "earnings_sales_prev": prev_non_percent[0],
+            "earnings_op_current": current_non_percent[1],
+            "earnings_op_prev": prev_non_percent[1],
+            "earnings_net_profit": current_non_percent[net_index],
+            "earnings_net_profit_prev": prev_non_percent[min(net_index, len(prev_non_percent) - 1)],
+            "_source_lines": {
+                "売上高": current_line,
+                "営業利益": current_line,
+                "純利益": current_line,
+            },
+        }
+    return {}
+
+
+def find_eps_values(lines):
+    for index, line in enumerate(lines):
+        if not any(label in line for label in ["1株当たり", "１株当たり", "基本的1株", "基本的１株"]):
+            continue
+
+        rows = find_period_row_pairs(lines, index, min_count=1)
+        if len(rows) < 2:
+            continue
+
+        return {
+            "earnings_eps_current": rows[0][1][0],
+            "earnings_eps_prev": rows[1][1][0],
+            "_source_lines": {"EPS": rows[0][0]},
+        }
+    return {}
+
+
+def find_cash_flow_values(lines):
+    for index, line in enumerate(lines):
+        if "営業活動による" not in line:
+            continue
+        joined_header = " ".join(lines[index : index + 8])
+        if "キャッシュ" not in joined_header or "投資活動による" not in joined_header or "財務活動による" not in joined_header:
+            continue
+
+        rows = find_period_row_pairs(lines, index, min_count=2)
+        if len(rows) < 1:
+            continue
+
+        current_line, current = rows[0]
+        return {
+            "earnings_operating_cf": current[0],
+            "earnings_investing_cf": current[1] if len(current) > 1 else 0.0,
+            "_source_lines": {
+                "営業CF": current_line,
+                "投資CF": current_line,
+            },
+        }
+    return {}
+
+
 def parse_financial_values_from_text(text):
     lines = [line.strip() for line in normalize_text(text).splitlines() if line.strip()]
 
@@ -265,7 +365,7 @@ def parse_financial_values_from_text(text):
     net_profit, net_profit_prev = current_and_previous(net_values)
     eps_current, eps_prev = current_and_previous(eps_values, is_eps=True)
 
-    return {
+    extracted = {
         "earnings_sales_current": sales_current,
         "earnings_sales_prev": sales_prev,
         "earnings_op_current": op_current,
@@ -285,6 +385,17 @@ def parse_financial_values_from_text(text):
             "投資CF": investing_cf_line,
         },
     }
+
+    for table_values in [find_summary_table_values(lines), find_eps_values(lines), find_cash_flow_values(lines)]:
+        source_lines = table_values.pop("_source_lines", {})
+        for key, value in table_values.items():
+            if value:
+                extracted[key] = value
+        for key, line in source_lines.items():
+            if line:
+                extracted["_source_lines"][key] = line
+
+    return extracted
 
 
 def build_editable_extracted_values(extracted):
