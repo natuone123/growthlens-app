@@ -87,15 +87,50 @@ def output_box(label, content, key):
     )
 
 
+SHARED_NUMBER_KEYS = {
+    "analysis_sales_current": "earnings_sales_current",
+    "analysis_sales_prev": "earnings_sales_prev",
+    "analysis_op_current": "earnings_op_current",
+    "analysis_op_prev": "earnings_op_prev",
+    "analysis_net_profit": "earnings_net_profit",
+    "analysis_eps_current": "earnings_eps_current",
+    "analysis_eps_prev": "earnings_eps_prev",
+    "analysis_operating_cf": "earnings_operating_cf",
+    "analysis_investing_cf": "earnings_investing_cf",
+}
+REVERSE_SHARED_NUMBER_KEYS = {value: key for key, value in SHARED_NUMBER_KEYS.items()}
+
+
+def paired_number_key(key):
+    return SHARED_NUMBER_KEYS.get(key) or REVERSE_SHARED_NUMBER_KEYS.get(key)
+
+
+def seed_shared_number_input(key):
+    paired_key = paired_number_key(key)
+    if key not in st.session_state:
+        st.session_state[key] = float(st.session_state.get(paired_key, 0.0)) if paired_key else 0.0
+
+
+def sync_shared_number_input(key):
+    paired_key = paired_number_key(key)
+    if paired_key:
+        st.session_state[paired_key] = float(st.session_state.get(key, 0.0))
+
+
 def number_input(label, key, min_value=None, help_text=None):
+    seed_shared_number_input(key)
+    kwargs = {}
+    if paired_number_key(key):
+        kwargs = {"on_change": sync_shared_number_input, "args": (key,)}
+
     return st.number_input(
         label,
         min_value=min_value,
-        value=0.0,
         step=1.0,
         format="%.2f",
         key=key,
         help=help_text,
+        **kwargs,
     )
 
 
@@ -435,6 +470,9 @@ def apply_extracted_values(values):
             continue
         if value:
             st.session_state[key] = float(value)
+            paired_key = paired_number_key(key)
+            if paired_key:
+                st.session_state[paired_key] = float(value)
 
 
 def render_pdf_importer():
