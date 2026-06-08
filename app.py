@@ -1,4 +1,6 @@
 import html
+import re
+from io import BytesIO
 from datetime import datetime
 
 import streamlit as st
@@ -95,6 +97,199 @@ def number_input(label, key, min_value=None, help_text=None):
         key=key,
         help=help_text,
     )
+
+
+def normalize_text(text):
+    return (
+        text.replace("△", "-")
+        .replace("▲", "-")
+        .replace("−", "-")
+        .replace("－", "-")
+        .replace("（", "(")
+        .replace("）", ")")
+        .replace("，", ",")
+        .replace("％", "%")
+    )
+
+
+def read_pdf_text(uploaded_file):
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return "", "PDF読み取りに必要な pypdf がインストールされていません。"
+
+    try:
+        reader = PdfReader(BytesIO(uploaded_file.getvalue()))
+        pages = [page.extract_text() or "" for page in reader.pages]
+        return "\n".join(pages), ""
+    except Exception as exc:
+        return "", f"PDFを読み取れませんでした: {exc}"
+
+
+def extract_numbers(line):
+    normalized = normalize_text(line)
+    matches = re.finditer(r"[-]?\(?\d[\d,]*(?:\.\d+)?\)?\s*%?", normalized)
+    values = []
+    for match in matches:
+        raw = match.group().strip()
+        is_percent = raw.endswith("%")
+        cleaned = raw.replace("%", "").replace(",", "").replace("(", "-").replace(")", "")
+        try:
+            values.append({"value": float(cleaned), "is_percent": is_percent})
+        except ValueError:
+            continue
+    return values
+
+
+def find_line_values(lines, labels):
+    for line in lines:
+        matched_label = next((label for label in labels if label in line), "")
+        if matched_label:
+            target = line.split(matched_label, 1)[1] or line
+            values = extract_numbers(target)
+            if values:
+                return values, line
+    return [], ""
+
+
+def current_and_previous(values, is_eps=False):
+    if not values:
+        return 0.0, 0.0
+
+    current = values[0]["value"]
+    if len(values) == 1:
+        return current, 0.0
+
+    if is_eps:
+        return current, values[1]["value"]
+
+    if len(values) >= 3 and not values[1]["is_percent"] and abs(values[1]["value"]) <= 300:
+        return current, values[2]["value"]
+
+    non_percent = [item["value"] for item in values if not item["is_percent"]]
+    if len(non_percent) >= 2:
+        return non_percent[0], non_percent[1]
+
+    if len(values) >= 3 and abs(values[1]["value"]) <= 300:
+        return current, values[2]["value"]
+
+    return current, values[1]["value"]
+
+
+def current_only(values):
+    return values[0]["value"] if values else 0.0
+
+
+def parse_financial_values_from_text(text):
+    lines = [line.strip() for line in normalize_text(text).splitlines() if line.strip()]
+
+    sales_values, sales_line = find_line_values(lines, ["売上高", "売上収益", "営業収益"])
+    op_values, op_line = find_line_values(lines, ["営業利益", "営業損失"])
+    net_values, net_line = find_line_values(
+        lines,
+        [
+            "親会社株主に帰属する当期純利益",
+            "親会社の所有者に帰属する当期利益",
+            "親会社株主に帰属する四半期純利益",
+            "当期純利益",
+            "四半期純利益",
+        ],
+    )
+    eps_values, eps_line = find_line_values(
+        lines,
+        [
+            "1株当たり当期純利益",
+            "1株当たり四半期純利益",
+            "１株当たり当期純利益",
+            "１株当たり四半期純利益",
+            "基本的1株当たり当期利益",
+            "基本的１株当たり当期利益",
+        ],
+    )
+    operating_cf_values, operating_cf_line = find_line_values(
+        lines,
+        ["営業活動によるキャッシュ・フロー", "営業活動によるキャッシュフロー"],
+    )
+    investing_cf_values, investing_cf_line = find_line_values(
+        lines,
+        ["投資活動によるキャッシュ・フロー", "投資活動によるキャッシュフロー"],
+    )
+
+    sales_current, sales_prev = current_and_previous(sales_values)
+    op_current, op_prev = current_and_previous(op_values)
+    net_profit, net_profit_prev = current_and_previous(net_values)
+    eps_current, eps_prev = current_and_previous(eps_values, is_eps=True)
+
+    return {
+        "earnings_sales_current": sales_current,
+        "earnings_sales_prev": sales_prev,
+        "earnings_op_current": op_current,
+        "earnings_op_prev": op_prev,
+        "earnings_net_profit": net_profit,
+        "earnings_net_profit_prev": net_profit_prev,
+        "earnings_eps_current": eps_current,
+        "earnings_eps_prev": eps_prev,
+        "earnings_operating_cf": current_only(operating_cf_values),
+        "earnings_investing_cf": current_only(investing_cf_values),
+        "_source_lines": {
+            "売上高": sales_line,
+            "営業利益": op_line,
+            "純利益": net_line,
+            "EPS": eps_line,
+            "営業CF": operating_cf_line,
+            "投資CF": investing_cf_line,
+        },
+    }
+
+
+def apply_extracted_values(values):
+    for key, value in values.items():
+        if key.startswith("_"):
+            continue
+        if value:
+            st.session_state[key] = float(value)
+
+
+def render_pdf_importer():
+    with st.expander("決算短信PDFから数字を取り込む", expanded=False):
+        uploaded_file = st.file_uploader("決算短信PDF", type=["pdf"], key="earnings_pdf")
+        st.caption("読み取った値は候補です。反映後に必ず決算短信の原文と照合してください。")
+
+        if not uploaded_file:
+            return
+
+        text, error = read_pdf_text(uploaded_file)
+        if error:
+            st.error(error)
+            return
+
+        extracted = parse_financial_values_from_text(text)
+        display_rows = [
+            ("今期売上高", "earnings_sales_current"),
+            ("前期売上高", "earnings_sales_prev"),
+            ("今期営業利益", "earnings_op_current"),
+            ("前期営業利益", "earnings_op_prev"),
+            ("今期純利益", "earnings_net_profit"),
+            ("前期純利益", "earnings_net_profit_prev"),
+            ("今期EPS", "earnings_eps_current"),
+            ("前期EPS", "earnings_eps_prev"),
+            ("営業CF", "earnings_operating_cf"),
+            ("投資CF", "earnings_investing_cf"),
+        ]
+
+        st.markdown("**抽出候補**")
+        for label, key in display_rows:
+            value = extracted.get(key, 0.0)
+            st.write(f"{label}: {value:,.2f}")
+
+        if st.button("候補値を入力欄へ反映", key="apply_pdf_values"):
+            apply_extracted_values(extracted)
+            st.success("候補値を反映しました。各入力欄を確認してください。")
+            st.rerun()
+
+        with st.expander("読み取り元の行を確認"):
+            for label, line in extracted["_source_lines"].items():
+                st.write(f"{label}: {line or '見つかりませんでした'}")
 
 
 def calculate_metrics(data):
@@ -363,6 +558,8 @@ def render_earnings_tab():
     fiscal_month = col_period2.text_input("決算期（月）", placeholder="例: 6", key="earnings_month")
     quarter = col_period3.selectbox("区分", ["通期", "第1四半期", "第2四半期", "第3四半期", "第4四半期"], key="earnings_quarter")
     period = f"20{fiscal_year}年{fiscal_month}月期 {quarter}".strip()
+
+    render_pdf_importer()
 
     col1, col2 = st.columns(2)
     with col1:
