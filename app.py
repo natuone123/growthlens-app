@@ -1,164 +1,509 @@
-import streamlit as st
-import streamlit.components.v1 as components
+import html
 from datetime import datetime
 
-# 現在年の下2桁
-current_year = datetime.now().year % 100
+import streamlit as st
+import streamlit.components.v1 as components
 
-# アプリ設定
+
+LOGO_URL = "https://raw.githubusercontent.com/natuone123/growthlens-app/main/.streamlit/growthlens_logo.png"
+FAVICON_URL = "https://raw.githubusercontent.com/natuone123/growthlens-app/main/.streamlit/growthlens_favicon.ico"
+
+
 st.set_page_config(
     page_title="GrowthLens",
-    page_icon="https://raw.githubusercontent.com/natuone123/growthlens-app/main/.streamlit/growthlens_favicon.ico",
+    page_icon=FAVICON_URL,
     layout="centered",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed",
 )
 
-# ロゴ画像
-st.image("https://raw.githubusercontent.com/natuone123/growthlens-app/main/.streamlit/growthlens_logo.png", width=80)
 
-st.title("GrowthLens – 企業分析＆決算レビューGPT用テンプレート生成")
+def init_state():
+    defaults = {
+        "history": [],
+        "holding_memos": [],
+        "企業名": "",
+        "証券コード": "",
+        "主な事業内容": "",
+        "成長テーマ": "",
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-mode = st.radio("モード選択", ["企業分析", "決算レビュー"])
 
-if "history" not in st.session_state:
-    st.session_state.history = []
+def pct(numerator, denominator):
+    return numerator / denominator * 100 if denominator else 0.0
 
-# --- 企業分析モード ---
-if mode == "企業分析":
-    st.subheader("① 企業情報を入力してください")
 
-    name = st.text_input("企業名", value=st.session_state.get("企業名", ""))
-    code = st.text_input("証券コード（任意）", value=st.session_state.get("証券コード", ""))
-    sales_current = st.text_input("今期売上高（百万円）", placeholder="例：12345")
-    sales_prev = st.text_input("前期売上高（百万円）", placeholder="例：10000")
-    op_profit = st.text_input("営業利益（百万円）", placeholder="例：1200")
-    roe = st.text_input("ROE（%）", value=st.session_state.get("ROE", ""), placeholder="例：8.2")
-    per = st.text_input("PER（倍）", value=st.session_state.get("PER", ""), placeholder="例：15.6")
-    capital_ratio = st.text_input("自己資本比率（%）", value=st.session_state.get("自己資本比率", ""), placeholder="例：40.0")
-    dividend = st.text_input("配当利回り（%）", value=st.session_state.get("配当利回り", ""), placeholder="例：1.8")
-    business = st.text_area("主な事業内容", value=st.session_state.get("主な事業内容", ""))
-    theme = st.text_input("成長テーマ（例：AI、半導体、ヘルスケア など）", value=st.session_state.get("成長テーマ", ""))
+def multiple(numerator, denominator):
+    return numerator / denominator if denominator else 0.0
 
-    try:
-        sales_current_f = float(sales_current)
-    except:
-        sales_current_f = 0
-    try:
-        sales_prev_f = float(sales_prev)
-    except:
-        sales_prev_f = 0
-    try:
-        op_profit_f = float(op_profit)
-    except:
-        op_profit_f = 0
 
-    sales_growth = ((sales_current_f - sales_prev_f) / sales_prev_f * 100) if sales_prev_f else 0
-    op_margin = (op_profit_f / sales_current_f * 100) if sales_current_f else 0
+def fmt_pct(value):
+    return f"{value:.1f}%"
 
-    if st.button("📋 テンプレート生成"):
-        output = f"""あなたは中長期投資家を支援するAI株式アナリストです。
-以下の企業データに基づき、企業分析を行ってください。
+
+def fmt_multiple(value):
+    return f"{value:.1f}倍" if value else "算出不可"
+
+
+def fmt_money(value):
+    return f"{value:,.0f} 百万円"
+
+
+def add_history(kind, company, content):
+    st.session_state.history.append(
+        {
+            "kind": kind,
+            "company": company or "未入力",
+            "timestamp": datetime.now(),
+            "content": content.strip(),
+        }
+    )
+
+
+def output_box(label, content, key):
+    st.markdown(f"**{label}**")
+    safe_content = html.escape(content.strip())
+    components.html(
+        f"""
+        <div style="position: relative;">
+            <textarea id="{key}" readonly
+                style="width:100%; height:360px; box-sizing:border-box; padding:12px 14px;
+                       border:1px solid #3f434d; border-radius:8px; color:#fafafa;
+                       background:#111827; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                       font-size:13px; line-height:1.55;">{safe_content}</textarea>
+            <button
+                onclick="navigator.clipboard.writeText(document.getElementById('{key}').value)"
+                style="position:absolute; top:10px; right:10px; border:0; border-radius:6px;
+                       background:#4CAF50; color:white; padding:7px 12px; cursor:pointer;">
+                コピー
+            </button>
+        </div>
+        """,
+        height=390,
+    )
+
+
+def number_input(label, key, min_value=None, help_text=None):
+    return st.number_input(
+        label,
+        min_value=min_value,
+        value=0.0,
+        step=1.0,
+        format="%.2f",
+        key=key,
+        help=help_text,
+    )
+
+
+def calculate_metrics(data):
+    fcf = data["operating_cf"] + data["investing_cf"]
+    market_cap = data["market_cap"]
+    if not market_cap and data["stock_price"] and data["shares_outstanding"]:
+        market_cap = data["stock_price"] * data["shares_outstanding"] / 1_000_000
+
+    metrics = {
+        "売上成長率": pct(data["sales_current"] - data["sales_prev"], data["sales_prev"]),
+        "営業利益成長率": pct(data["op_current"] - data["op_prev"], data["op_prev"]),
+        "営業利益率": pct(data["op_current"], data["sales_current"]),
+        "純利益率": pct(data["net_profit"], data["sales_current"]),
+        "EPS成長率": pct(data["eps_current"] - data["eps_prev"], data["eps_prev"]),
+        "ROE": pct(data["net_profit"], data["equity"]),
+        "自己資本比率": pct(data["equity"], data["total_assets"]),
+        "ネットキャッシュ": data["cash"] - data["interest_bearing_debt"],
+        "PER": multiple(market_cap, data["net_profit"]),
+        "PSR": multiple(market_cap, data["sales_current"]),
+        "FCF": fcf,
+        "FCFマージン": pct(fcf, data["sales_current"]),
+        "配当性向": pct(data["dividend_total"], data["net_profit"]),
+        "時価総額": market_cap,
+    }
+    return metrics
+
+
+def score_company(metrics):
+    growth = 5 if metrics["売上成長率"] >= 20 else 4 if metrics["売上成長率"] >= 10 else 3 if metrics["売上成長率"] >= 3 else 2 if metrics["売上成長率"] >= 0 else 1
+    profitability = 5 if metrics["営業利益率"] >= 20 else 4 if metrics["営業利益率"] >= 12 else 3 if metrics["営業利益率"] >= 7 else 2 if metrics["営業利益率"] > 0 else 1
+    finance = 5 if metrics["自己資本比率"] >= 60 and metrics["ネットキャッシュ"] >= 0 else 4 if metrics["自己資本比率"] >= 40 else 3 if metrics["自己資本比率"] >= 25 else 2 if metrics["自己資本比率"] > 0 else 1
+    cash_quality = 5 if metrics["FCFマージン"] >= 12 else 4 if metrics["FCFマージン"] >= 6 else 3 if metrics["FCF"] >= 0 else 2 if metrics["FCFマージン"] >= -5 else 1
+
+    per = metrics["PER"]
+    psr = metrics["PSR"]
+    if not per:
+        valuation = "判定保留"
+    elif per <= 15 and psr <= 2:
+        valuation = "割安"
+    elif per <= 30 and psr <= 5:
+        valuation = "妥当"
+    else:
+        valuation = "割高"
+
+    average = (growth + profitability + finance + cash_quality) / 4
+    if average >= 4.2 and valuation != "割高":
+        fit = "A"
+    elif average >= 3.4:
+        fit = "B"
+    elif average >= 2.6:
+        fit = "C"
+    else:
+        fit = "D"
+
+    return {
+        "成長性": growth,
+        "収益性": profitability,
+        "財務安全性": finance,
+        "利益の質": cash_quality,
+        "バリュエーション": valuation,
+        "投資スタイル適合度": fit,
+    }
+
+
+def render_metric_summary(metrics, scores):
+    col1, col2, col3 = st.columns(3)
+    col1.metric("売上成長率", fmt_pct(metrics["売上成長率"]))
+    col2.metric("営業利益率", fmt_pct(metrics["営業利益率"]))
+    col3.metric("FCFマージン", fmt_pct(metrics["FCFマージン"]))
+
+    col4, col5, col6 = st.columns(3)
+    col4.metric("ROE", fmt_pct(metrics["ROE"]))
+    col5.metric("PER", fmt_multiple(metrics["PER"]))
+    col6.metric("適合度", scores["投資スタイル適合度"])
+
+    st.caption(
+        f"ネットキャッシュ: {fmt_money(metrics['ネットキャッシュ'])} / "
+        f"PSR: {fmt_multiple(metrics['PSR'])} / "
+        f"バリュエーション: {scores['バリュエーション']}"
+    )
+
+
+def company_analysis_prompt(name, code, business, theme, data, metrics, scores, hypothesis):
+    return f"""
+あなたは中長期投資家を支援するAI株式アナリストです。
+以下の一次情報と自動計算指標に基づき、投資判断に使える企業分析を行ってください。
 
 【企業名】{name}
 【証券コード】{code}
-【売上高】今期 {sales_current} 百万円 ／ 前期 {sales_prev} 百万円（成長率：{sales_growth:.1f}%）
-【営業利益】{op_profit} 百万円（営業利益率：{op_margin:.1f}%）
-【ROE】{roe}%
-【PER】{per}倍
-【自己資本比率】{capital_ratio}%
-【配当利回り】{dividend}%
 【主な事業内容】{business}
 【成長テーマ】{theme}
 
-出力は「強み・弱み・成長性・中長期リスク・競合優位性」の見出し＋箇条書き形式で整理してください。
-分析は中長期（3〜10年）目線で行い、最新の成長テーマ（AI、量子コンピュータ、半導体、DX、ESG等）を積極的に考慮してください。最後に、中長期投資家の視点から、本銘柄のおすすめ度（A〜E）を総合的に評価してください。"""
+【一次情報】
+売上高: 今期 {fmt_money(data['sales_current'])} / 前期 {fmt_money(data['sales_prev'])}
+営業利益: 今期 {fmt_money(data['op_current'])} / 前期 {fmt_money(data['op_prev'])}
+純利益: {fmt_money(data['net_profit'])}
+EPS: 今期 {data['eps_current']:.2f}円 / 前期 {data['eps_prev']:.2f}円
+営業CF: {fmt_money(data['operating_cf'])}
+投資CF: {fmt_money(data['investing_cf'])}
+現金等: {fmt_money(data['cash'])}
+有利子負債: {fmt_money(data['interest_bearing_debt'])}
+自己資本: {fmt_money(data['equity'])}
+総資産: {fmt_money(data['total_assets'])}
+発行済株式数: {data['shares_outstanding']:,.0f}株
+株価: {data['stock_price']:,.2f}円
+時価総額: {fmt_money(metrics['時価総額'])}
+年間配当総額: {fmt_money(data['dividend_total'])}
 
-        components.html(f"""
-        <div style="position: relative;">
-            <textarea id="copyTarget" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
-            <button onclick="navigator.clipboard.writeText(document.getElementById('copyTarget').value)" 
-                    style="position: absolute; top: 10px; right: 10px; background-color: #4CAF50; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 5px;">
-                📋 コピー
-            </button>
-        </div>
-        """, height=340)
+【自動計算指標】
+売上成長率: {fmt_pct(metrics['売上成長率'])}
+営業利益成長率: {fmt_pct(metrics['営業利益成長率'])}
+営業利益率: {fmt_pct(metrics['営業利益率'])}
+純利益率: {fmt_pct(metrics['純利益率'])}
+EPS成長率: {fmt_pct(metrics['EPS成長率'])}
+ROE: {fmt_pct(metrics['ROE'])}
+自己資本比率: {fmt_pct(metrics['自己資本比率'])}
+ネットキャッシュ: {fmt_money(metrics['ネットキャッシュ'])}
+PER: {fmt_multiple(metrics['PER'])}
+PSR: {fmt_multiple(metrics['PSR'])}
+FCF: {fmt_money(metrics['FCF'])}
+FCFマージン: {fmt_pct(metrics['FCFマージン'])}
+配当性向: {fmt_pct(metrics['配当性向'])}
 
-        st.session_state.history.append(("企業分析", datetime.now(), output.strip()))
+【アプリ側の仮スコア】
+成長性: {scores['成長性']}/5
+収益性: {scores['収益性']}/5
+財務安全性: {scores['財務安全性']}/5
+利益の質: {scores['利益の質']}/5
+バリュエーション: {scores['バリュエーション']}
+投資スタイル適合度: {scores['投資スタイル適合度']}
+
+【投資仮説】
+{hypothesis}
+
+以下の形式で、文章よりも判定と根拠を重視して出力してください。
+1. 投資判断サマリー
+2. スコア評価（成長性・収益性・財務安全性・競争優位性・バリュエーション許容度）
+3. 投資仮説が成り立つ理由
+4. 反証条件
+5. 買う前チェックリスト
+6. 30%下落時にも保有できるか
+7. 現在の判断（新規検討・継続・買い増し・縮小・売却検討）
+8. 次に確認すべき一次情報
+""".strip()
+
+
+def earnings_review_prompt(name, period, data, metrics, thesis_impact, current_decision, comment):
+    return f"""
+あなたは中長期投資家を支援するAI株式アナリストです。
+以下の決算情報に基づき、保有判断に直結する厳しめの決算レビューを行ってください。
+
+【企業名】{name}
+【決算期】{period}
+
+【一次情報】
+売上高: 今期 {fmt_money(data['sales_current'])} / 前期 {fmt_money(data['sales_prev'])}
+営業利益: 今期 {fmt_money(data['op_current'])} / 前期 {fmt_money(data['op_prev'])}
+純利益: 今期 {fmt_money(data['net_profit'])} / 前期 {fmt_money(data['net_profit_prev'])}
+EPS: 今期 {data['eps_current']:.2f}円 / 前期 {data['eps_prev']:.2f}円
+営業CF: {fmt_money(data['operating_cf'])}
+投資CF: {fmt_money(data['investing_cf'])}
+会社コメント・見通し: {comment}
+
+【自動計算指標】
+売上成長率: {fmt_pct(metrics['売上成長率'])}
+営業利益成長率: {fmt_pct(metrics['営業利益成長率'])}
+営業利益率: {fmt_pct(metrics['営業利益率'])}
+純利益率: {fmt_pct(metrics['純利益率'])}
+EPS成長率: {fmt_pct(metrics['EPS成長率'])}
+FCF: {fmt_money(metrics['FCF'])}
+FCFマージン: {fmt_pct(metrics['FCFマージン'])}
+
+【現時点の自己判断】
+投資仮説への影響: {thesis_impact}
+現在の判断: {current_decision}
+
+以下の形式で出力してください。
+1. 決算の一言評価（期待以上・期待通り・やや期待未満・明確に悪い）
+2. 数字面の評価（売上・営業利益・利益率・EPS・キャッシュフロー）
+3. 質的評価（成長ドライバー、一過性/構造的要因、会社説明の納得度）
+4. 投資仮説への影響（強まった・維持・黄信号・崩壊）
+5. 次回決算で確認すること
+6. 現在の判断（継続・買い増し検討・様子見・一部売却・売却検討）
+""".strip()
+
+
+def render_company_analysis_tab():
+    st.subheader("企業分析")
+    st.caption("決算書や短信の一次情報を入れると、主要指標を自動計算してGPT用プロンプトを作ります。")
+
+    name = st.text_input("企業名", value=st.session_state.get("企業名", ""), key="analysis_name")
+    code = st.text_input("証券コード", value=st.session_state.get("証券コード", ""), key="analysis_code")
+    business = st.text_area("主な事業内容", value=st.session_state.get("主な事業内容", ""), key="analysis_business")
+    theme = st.text_input("成長テーマ", value=st.session_state.get("成長テーマ", ""), key="analysis_theme")
+
+    st.markdown("**一次情報**")
+    col1, col2 = st.columns(2)
+    with col1:
+        sales_current = number_input("今期売上高（百万円）", "analysis_sales_current")
+        op_current = number_input("今期営業利益（百万円）", "analysis_op_current")
+        net_profit = number_input("純利益（百万円）", "analysis_net_profit")
+        eps_current = number_input("今期EPS（円）", "analysis_eps_current")
+        operating_cf = number_input("営業CF（百万円）", "analysis_operating_cf")
+        cash = number_input("現金等（百万円）", "analysis_cash")
+        equity = number_input("自己資本（百万円）", "analysis_equity")
+        stock_price = number_input("株価（円）", "analysis_stock_price")
+    with col2:
+        sales_prev = number_input("前期売上高（百万円）", "analysis_sales_prev")
+        op_prev = number_input("前期営業利益（百万円）", "analysis_op_prev")
+        eps_prev = number_input("前期EPS（円）", "analysis_eps_prev")
+        investing_cf = number_input("投資CF（百万円）", "analysis_investing_cf")
+        interest_bearing_debt = number_input("有利子負債（百万円）", "analysis_debt")
+        total_assets = number_input("総資産（百万円）", "analysis_total_assets")
+        shares_outstanding = number_input("発行済株式数（株）", "analysis_shares")
+        market_cap = number_input("時価総額（百万円・任意）", "analysis_market_cap")
+
+    dividend_total = number_input("年間配当総額（百万円）", "analysis_dividend_total")
+    investment_hypothesis = st.text_area(
+        "投資仮説",
+        placeholder="なぜこの企業に投資するのか。売上成長、利益率改善、シェア拡大など。",
+        key="analysis_hypothesis",
+    )
+
+    data = {
+        "sales_current": sales_current,
+        "sales_prev": sales_prev,
+        "op_current": op_current,
+        "op_prev": op_prev,
+        "net_profit": net_profit,
+        "eps_current": eps_current,
+        "eps_prev": eps_prev,
+        "operating_cf": operating_cf,
+        "investing_cf": investing_cf,
+        "cash": cash,
+        "interest_bearing_debt": interest_bearing_debt,
+        "equity": equity,
+        "total_assets": total_assets,
+        "shares_outstanding": shares_outstanding,
+        "stock_price": stock_price,
+        "market_cap": market_cap,
+        "dividend_total": dividend_total,
+    }
+    metrics = calculate_metrics(data)
+    scores = score_company(metrics)
+
+    render_metric_summary(metrics, scores)
+
+    if st.button("企業分析プロンプトを生成", key="analysis_generate"):
+        prompt = company_analysis_prompt(name, code, business, theme, data, metrics, scores, investment_hypothesis)
+        output_box("GPT用プロンプト", prompt, "analysis_output")
+        add_history("企業分析", name, prompt)
         st.session_state["企業名"] = name
         st.session_state["証券コード"] = code
-        st.session_state["ROE"] = roe
-        st.session_state["PER"] = per
-        st.session_state["自己資本比率"] = capital_ratio
-        st.session_state["配当利回り"] = dividend
         st.session_state["主な事業内容"] = business
         st.session_state["成長テーマ"] = theme
 
-# --- 決算レビュー ---
-else:
-    st.subheader("② 決算情報を入力してください")
 
-    name = st.text_input("企業名", value=st.session_state.get("企業名", ""))
-    fiscal_year = st.text_input("決算期（年, 例:25）", value=str(current_year), placeholder="例：25")
-    fiscal_month = st.text_input("決算期（月, 例:6）", placeholder="例：6")
-    quarter = st.text_input("第◯四半期（通期は空欄）", placeholder="例：1, 2, 3, 4 または空欄")
+def render_earnings_tab():
+    st.subheader("決算レビュー")
+    st.caption("数字の良し悪しだけでなく、投資仮説への影響と現在の判断まで固定します。")
 
-    sales_current = st.text_input("今期売上高（百万円）", placeholder="例：12345")
-    sales_prev = st.text_input("前期売上高（百万円）", placeholder="例：10000")
-    op_current = st.text_input("今期営業利益（百万円）", placeholder="例：1300")
-    op_prev = st.text_input("前期営業利益（百万円）", placeholder="例：1200")
-    net_profit = st.text_input("純利益（百万円）", placeholder="例：950")
-    net_yoy = st.text_input("純利益前年比（%）", placeholder="例：+5.2")
-    eps = st.text_input("EPS（円）", placeholder="例：120.3")
-    future = st.text_area("会社コメント・来期見通し（任意）")
+    name = st.text_input("企業名", value=st.session_state.get("企業名", ""), key="earnings_name")
+    current_year = datetime.now().year % 100
+    col_period1, col_period2, col_period3 = st.columns(3)
+    fiscal_year = col_period1.text_input("決算期（年）", value=str(current_year), key="earnings_year")
+    fiscal_month = col_period2.text_input("決算期（月）", placeholder="例: 6", key="earnings_month")
+    quarter = col_period3.selectbox("区分", ["通期", "第1四半期", "第2四半期", "第3四半期", "第4四半期"], key="earnings_quarter")
+    period = f"20{fiscal_year}年{fiscal_month}月期 {quarter}".strip()
 
-    try:
-        sales_current_f = float(sales_current)
-        sales_prev_f = float(sales_prev)
-        op_current_f = float(op_current)
-        op_prev_f = float(op_prev)
-    except:
-        sales_current_f = sales_prev_f = op_current_f = op_prev_f = 0
+    col1, col2 = st.columns(2)
+    with col1:
+        sales_current = number_input("今期売上高（百万円）", "earnings_sales_current")
+        op_current = number_input("今期営業利益（百万円）", "earnings_op_current")
+        net_profit = number_input("今期純利益（百万円）", "earnings_net_profit")
+        eps_current = number_input("今期EPS（円）", "earnings_eps_current")
+        operating_cf = number_input("営業CF（百万円）", "earnings_operating_cf")
+    with col2:
+        sales_prev = number_input("前期売上高（百万円）", "earnings_sales_prev")
+        op_prev = number_input("前期営業利益（百万円）", "earnings_op_prev")
+        net_profit_prev = number_input("前期純利益（百万円）", "earnings_net_profit_prev")
+        eps_prev = number_input("前期EPS（円）", "earnings_eps_prev")
+        investing_cf = number_input("投資CF（百万円）", "earnings_investing_cf")
 
-    sales_yoy = ((sales_current_f - sales_prev_f) / sales_prev_f * 100) if sales_prev_f else 0
-    op_yoy = ((op_current_f - op_prev_f) / op_prev_f * 100) if op_prev_f else 0
+    comment = st.text_area("会社コメント・来期見通し", key="earnings_comment")
+    thesis_impact = st.selectbox("投資仮説への影響", ["仮説は強まった", "仮説は維持", "仮説に黄信号", "仮説崩壊"], key="earnings_thesis_impact")
+    current_decision = st.selectbox("現在の判断", ["継続", "買い増し検討", "様子見", "一部売却", "売却検討"], key="earnings_decision")
 
-    if st.button("📋 テンプレート生成"):
-        fiscal_str = f"20{fiscal_year}年{fiscal_month}月期"
-        if quarter.strip():
-            fiscal_str += f" 第{quarter}四半期"
+    data = {
+        "sales_current": sales_current,
+        "sales_prev": sales_prev,
+        "op_current": op_current,
+        "op_prev": op_prev,
+        "net_profit": net_profit,
+        "net_profit_prev": net_profit_prev,
+        "eps_current": eps_current,
+        "eps_prev": eps_prev,
+        "operating_cf": operating_cf,
+        "investing_cf": investing_cf,
+        "cash": 0.0,
+        "interest_bearing_debt": 0.0,
+        "equity": 0.0,
+        "total_assets": 0.0,
+        "shares_outstanding": 0.0,
+        "stock_price": 0.0,
+        "market_cap": 0.0,
+        "dividend_total": 0.0,
+    }
+    metrics = calculate_metrics(data)
 
-        output = f"""
-あなたは中長期投資家を支援するAI株式アナリストです。
-以下の決算情報に基づき、決算レビューを行ってください。
+    col1, col2, col3 = st.columns(3)
+    col1.metric("売上成長率", fmt_pct(metrics["売上成長率"]))
+    col2.metric("営業利益成長率", fmt_pct(metrics["営業利益成長率"]))
+    col3.metric("FCF", fmt_money(metrics["FCF"]))
 
-【企業名】{name}
-【決算期】{fiscal_str}
-【売上高】今期 {sales_current} 百万円 ／ 前期 {sales_prev} 百万円（前年比：{sales_yoy:.1f}%）
-【営業利益】今期 {op_current} 百万円 ／ 前期 {op_prev} 百万円（前年比：{op_yoy:.1f}%）
-【純利益】{net_profit} 百万円（前年比：{net_yoy}%）
-【EPS】{eps}円
-【会社見通し・注記】{future}
-
-出力は「決算の総合評価・良い点・懸念点・中長期投資家としての判断材料・今後の注意点」の見出し＋箇条書き形式で整理してください。
-
-最後に中長期投資の視点から、おすすめ度をA〜Eで評価してください。
-"""
-        components.html(f"""
-        <div style="position: relative;">
-            <textarea id="copyTarget" style="width: 100%; height: 300px; padding: 10px; font-family: monospace;">{output}</textarea>
-            <button onclick="navigator.clipboard.writeText(document.getElementById('copyTarget').value)" 
-                    style="position: absolute; top: 10px; right: 10px; background-color: #4CAF50; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 5px;">
-                📋 コピー
-            </button>
-        </div>
-        """, height=340)
-        st.session_state.history.append(("決算レビュー", datetime.now(), output.strip()))
+    if st.button("決算レビュープロンプトを生成", key="earnings_generate"):
+        prompt = earnings_review_prompt(name, period, data, metrics, thesis_impact, current_decision, comment)
+        output_box("GPT用プロンプト", prompt, "earnings_output")
+        add_history("決算レビュー", name, prompt)
         st.session_state["企業名"] = name
-# --- 履歴表示・削除 ---
-with st.expander("📜 生成履歴"):
-    for i, (mode_str, ts, content) in enumerate(reversed(st.session_state.history)):
-        st.markdown(f"**{mode_str}**（{ts.strftime('%Y-%m-%d %H:%M:%S')}）")
-        st.code(content, language="markdown")
-    if st.button("🗑️ 履歴を全て削除"):
+
+
+def render_holding_memo_tab():
+    st.subheader("保有メモ")
+    st.caption("買う前と保有中の判断基準を残します。")
+
+    name = st.text_input("企業名", value=st.session_state.get("企業名", ""), key="memo_name")
+    code = st.text_input("証券コード", value=st.session_state.get("証券コード", ""), key="memo_code")
+    hypothesis = st.text_area("投資仮説", key="memo_hypothesis")
+    expected_scenario = st.text_area("期待シナリオ", key="memo_expected")
+    disconfirming = st.text_area("反証条件", key="memo_disconfirming")
+    holding_reason = st.text_area("保有理由", key="memo_holding_reason")
+    sell_condition = st.text_area("売却条件", key="memo_sell_condition")
+    downside_plan = st.text_area("30%下落した場合の対応", key="memo_downside_plan")
+    post_earnings_decision = st.selectbox("決算後判断", ["継続", "買い増し検討", "様子見", "一部売却", "売却検討"], key="memo_decision")
+
+    checklist = {
+        "事業理解": st.checkbox("何で稼いでいるか説明できる", key="check_business"),
+        "成長余地": st.checkbox("3〜5年後も伸びる理由がある", key="check_growth"),
+        "競争優位性": st.checkbox("他社に負けにくい理由がある", key="check_moat"),
+        "財務": st.checkbox("借金過多ではない", key="check_finance"),
+        "利益の質": st.checkbox("営業CFが伴っている", key="check_cashflow"),
+        "バリュエーション": st.checkbox("期待を織り込みすぎていない", key="check_valuation"),
+        "下落耐性": st.checkbox("30%下落しても保有理由が残る", key="check_downside"),
+        "売却条件": st.checkbox("買う前に売却条件を決めている", key="check_sell_condition"),
+    }
+
+    checked_count = sum(checklist.values())
+    st.progress(checked_count / len(checklist), text=f"買う前チェック: {checked_count}/{len(checklist)}")
+
+    if st.button("保有メモを保存", key="memo_save"):
+        memo = {
+            "company": name or "未入力",
+            "code": code,
+            "timestamp": datetime.now(),
+            "hypothesis": hypothesis,
+            "expected_scenario": expected_scenario,
+            "disconfirming": disconfirming,
+            "holding_reason": holding_reason,
+            "sell_condition": sell_condition,
+            "downside_plan": downside_plan,
+            "post_earnings_decision": post_earnings_decision,
+            "checklist": checklist,
+        }
+        st.session_state.holding_memos.append(memo)
+        st.success("保有メモを保存しました。")
+
+    if st.session_state.holding_memos:
+        st.markdown("**保存済みメモ**")
+        for memo in reversed(st.session_state.holding_memos):
+            with st.expander(f"{memo['company']}（{memo['timestamp'].strftime('%Y-%m-%d %H:%M')}）"):
+                st.markdown(f"**投資仮説**\n\n{memo['hypothesis'] or '未入力'}")
+                st.markdown(f"**反証条件**\n\n{memo['disconfirming'] or '未入力'}")
+                st.markdown(f"**売却条件**\n\n{memo['sell_condition'] or '未入力'}")
+                st.markdown(f"**決算後判断**: {memo['post_earnings_decision']}")
+
+
+def render_history_tab():
+    st.subheader("履歴")
+    st.caption("この画面を開いている間の生成履歴を確認できます。")
+
+    if not st.session_state.history:
+        st.info("まだ履歴はありません。")
+        return
+
+    for item in reversed(st.session_state.history):
+        with st.expander(f"{item['kind']} / {item['company']} / {item['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}"):
+            st.code(item["content"], language="markdown")
+
+    if st.button("履歴をすべて削除", key="history_clear"):
         st.session_state.history.clear()
         st.rerun()
+
+
+init_state()
+
+st.image(LOGO_URL, width=72)
+st.title("GrowthLens")
+st.caption("一次情報から財務指標を計算し、投資仮説・決算評価・売買判断を記録する中長期投資ツール")
+
+tab_analysis, tab_earnings, tab_memo, tab_history = st.tabs(["企業分析", "決算レビュー", "保有メモ", "履歴"])
+
+with tab_analysis:
+    render_company_analysis_tab()
+
+with tab_earnings:
+    render_earnings_tab()
+
+with tab_memo:
+    render_holding_memo_tab()
+
+with tab_history:
+    render_history_tab()
