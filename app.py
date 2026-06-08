@@ -120,7 +120,12 @@ def read_pdf_text(uploaded_file):
 
     try:
         reader = PdfReader(BytesIO(uploaded_file.getvalue()))
-        pages = [page.extract_text() or "" for page in reader.pages]
+        pages = []
+        for page in reader.pages:
+            try:
+                pages.append(page.extract_text(extraction_mode="layout") or "")
+            except TypeError:
+                pages.append(page.extract_text() or "")
         return "\n".join(pages), ""
     except Exception as exc:
         return "", f"PDFを読み取れませんでした: {exc}"
@@ -141,14 +146,54 @@ def extract_numbers(line):
     return values
 
 
+def is_likely_table_header(line):
+    if ("年" in line and "期" in line) or "前期" in line or "当期" in line:
+        return True
+    header_words = ["百万円", "％", "%", "円", "銭", "会計期間", "連結累計期間", "期", "年度"]
+    return any(word in line for word in header_words) and not extract_numbers(line)
+
+
+def clean_number_candidates(values):
+    cleaned = []
+    for item in values:
+        value = item["value"]
+        if item["is_percent"]:
+            continue
+        if 1900 <= abs(value) <= 2100:
+            continue
+        cleaned.append(item)
+    return cleaned
+
+
+def values_from_nearby_lines(lines, start_index, matched_label, max_following_lines=6):
+    first_line = lines[start_index]
+    first_target = first_line.split(matched_label, 1)[1] or first_line
+    candidate_lines = [first_target]
+
+    for offset in range(1, max_following_lines + 1):
+        if start_index + offset >= len(lines):
+            break
+
+        line = lines[start_index + offset]
+        if any(stop in line for stop in ["営業利益", "経常利益", "純利益", "売上高", "売上収益", "営業収益", "1株当たり", "キャッシュ"]):
+            break
+        if is_likely_table_header(line):
+            continue
+        candidate_lines.append(line)
+
+    values = []
+    for line in candidate_lines:
+        values.extend(extract_numbers(line))
+    return clean_number_candidates(values), " / ".join(candidate_lines).strip()
+
+
 def find_line_values(lines, labels):
-    for line in lines:
+    for index, line in enumerate(lines):
         matched_label = next((label for label in labels if label in line), "")
         if matched_label:
-            target = line.split(matched_label, 1)[1] or line
-            values = extract_numbers(target)
+            values, source = values_from_nearby_lines(lines, index, matched_label)
             if values:
-                return values, line
+                return values, line if line in source else f"{line} / {source}"
     return [], ""
 
 
@@ -163,7 +208,7 @@ def current_and_previous(values, is_eps=False):
     if is_eps:
         return current, values[1]["value"]
 
-    if len(values) >= 3 and not values[1]["is_percent"] and abs(values[1]["value"]) <= 300:
+    if len(values) >= 3 and 0 < abs(values[1]["value"]) <= 300:
         return current, values[2]["value"]
 
     non_percent = [item["value"] for item in values if not item["is_percent"]]
@@ -242,6 +287,37 @@ def parse_financial_values_from_text(text):
     }
 
 
+def build_editable_extracted_values(extracted):
+    st.markdown("**抽出候補**")
+    st.caption("ずれている値はここで修正してから入力欄へ反映できます。")
+
+    rows = [
+        ("今期売上高", "earnings_sales_current"),
+        ("前期売上高", "earnings_sales_prev"),
+        ("今期営業利益", "earnings_op_current"),
+        ("前期営業利益", "earnings_op_prev"),
+        ("今期純利益", "earnings_net_profit"),
+        ("前期純利益", "earnings_net_profit_prev"),
+        ("今期EPS", "earnings_eps_current"),
+        ("前期EPS", "earnings_eps_prev"),
+        ("営業CF", "earnings_operating_cf"),
+        ("投資CF", "earnings_investing_cf"),
+    ]
+
+    edited = {"_source_lines": extracted["_source_lines"]}
+    for index in range(0, len(rows), 2):
+        columns = st.columns(2)
+        for col, (label, key) in zip(columns, rows[index : index + 2]):
+            edited[key] = col.number_input(
+                label,
+                value=float(extracted.get(key, 0.0)),
+                step=1.0,
+                format="%.2f",
+                key=f"extracted_{key}",
+            )
+    return edited
+
+
 def apply_extracted_values(values):
     for key, value in values.items():
         if key.startswith("_"):
@@ -263,24 +339,7 @@ def render_pdf_importer():
             st.error(error)
             return
 
-        extracted = parse_financial_values_from_text(text)
-        display_rows = [
-            ("今期売上高", "earnings_sales_current"),
-            ("前期売上高", "earnings_sales_prev"),
-            ("今期営業利益", "earnings_op_current"),
-            ("前期営業利益", "earnings_op_prev"),
-            ("今期純利益", "earnings_net_profit"),
-            ("前期純利益", "earnings_net_profit_prev"),
-            ("今期EPS", "earnings_eps_current"),
-            ("前期EPS", "earnings_eps_prev"),
-            ("営業CF", "earnings_operating_cf"),
-            ("投資CF", "earnings_investing_cf"),
-        ]
-
-        st.markdown("**抽出候補**")
-        for label, key in display_rows:
-            value = extracted.get(key, 0.0)
-            st.write(f"{label}: {value:,.2f}")
+        extracted = build_editable_extracted_values(parse_financial_values_from_text(text))
 
         if st.button("候補値を入力欄へ反映", key="apply_pdf_values"):
             apply_extracted_values(extracted)
@@ -290,6 +349,9 @@ def render_pdf_importer():
         with st.expander("読み取り元の行を確認"):
             for label, line in extracted["_source_lines"].items():
                 st.write(f"{label}: {line or '見つかりませんでした'}")
+
+        with st.expander("PDFから抽出したテキストを確認"):
+            st.text_area("抽出テキスト", value=text[:8000], height=220, disabled=True)
 
 
 def calculate_metrics(data):
